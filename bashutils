@@ -1,0 +1,172 @@
+#! /usr/bin/env bash
+
+function bashutils::is_installed() {
+    if [[ ${#} -ne 1 ]]; then
+        bashutils::terminate
+        return 1
+    fi
+
+    which "${1}" &> /dev/null && return 0 || return 1
+}
+
+function bashutils::terminate() {
+    local message="${1:-}" # optional parameter
+
+    if [[ ${#} -ne 0 ]]; then
+        local header="The program has been terminated due to a critical error:"
+
+        if bashutils::is_installed "ansi"; then
+            header="$(ansi --bold --red "${header}")"
+        fi
+
+        >&2 printf "\n"
+        >&2 printf "%s\n" "${header}"
+        >&2 printf "%s\n" "${message}"
+    fi
+
+    exit 1
+}
+
+function bashutils::invoke_sudo() {
+    if sudo echo &> /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function bashutils::basedir() {
+    local script="${BASH_SOURCE[0]}"
+    local dir, full_dir
+
+    # resolve symbolic link
+    if [[ -L "${script}" ]]; then
+        if readlink -f "${script}" &> /dev/null; then
+            script="$(readlink -f "${script}")"
+        elif readlink "${script}" &> /dev/null; then
+            script="$(readlink "${script}")"
+        elif realpath "${script}" &> /dev/null; then
+            script="$(realpath "${script}")"
+        else
+            bashutils::terminate "Cannot resolve symbolic link ${script}."
+            return 1
+        fi
+    fi
+
+    dir="$(dirname "${script}")"
+    full_dir="$(cd "${dir}" && pwd)"
+
+    printf "%s" "${full_dir}"
+}
+
+BASHUTILS_AIX_FAMILY="aix"
+BASHUTILS_LINUX_FAMILY="linux"
+BASHUTILS_MACOS_FAMILY="macos"
+
+function bashutils::is_macos() {
+    if [[ "$(bashutils::get_os_family)" == "${BASHUTILS_MACOS_FAMILY}" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+function bashutils::is_linux() {
+    if [[ "$(bashutils::get_os_family)" == "${BASHUTILS_LINUX_FAMILY}" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+function bashutils::is_aix() {
+    if [[ "$(bashutils::get_os_family)" == "${BASHUTILS_AIX_FAMILY}" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+function bashutils::get_os_family() {
+    local os_family
+
+    os_family="$(uname)"
+
+    case "${os_family}" in
+        "Darwin" )
+            printf "%s" "${BASHUTILS_MACOS_FAMILY}"
+            return
+        ;;
+
+        "Linux" )
+            printf "%s" "${BASHUTILS_LINUX_FAMILY}"
+            return
+        ;;
+
+        "AIX" )
+            printf "%s" "${BASHUTILS_AIX_FAMILY}"
+            return
+        ;;
+
+        * )
+            printf "%s" "${os_family}"
+            return
+    esac
+}
+
+# private function
+function bashutils::__get_current_bash_version_array() {
+    printf '%s' "${BASH_VERSINFO[*]}"
+}
+
+# private function
+function bashutils::__get_current_bash_version() {
+    printf '%s' "${BASH_VERSION}"
+}
+
+# TODO: support for alpha, beta releases, etc
+function bashutils::is_min_bash_version() {
+    local required_version="${1}"
+
+    if ! [[ "${required_version}" =~ ^[0-9]+(.[0-9]+){0,3}$ ]]; then
+        # TODO: doplnit funkci, která jen vypíše error message.
+        bashutils::terminate "Unsupported version format."
+        return 1
+    fi
+
+    local bash_current_version_array=()
+    local current_bash_version_part
+
+    for current_bash_version_part in $(bashutils::__get_current_bash_version_array); do
+        bash_current_version_array+=( "${current_bash_version_part}" )
+    done
+
+    local version_part_index="0"
+    local version_part
+
+    for version_part in $(echo -n "${required_version}" | tr "." " "); do
+        # greater version, no need to check any further -> success
+        if [[ "${bash_current_version_array[${version_part_index}]}" -gt "${version_part}" ]]; then
+            return 0
+        # lower version, no need to check any further -> fail
+        elif [[ "${bash_current_version_array[${version_part_index}]}" -lt "${version_part}" ]]; then
+            return 1
+        fi
+
+        version_part_index=$(( version_part_index + 1 ))
+    done
+
+    return 0
+}
+
+function bashutils::require_min_bash_version() {
+    local required_version="${1:-}"
+
+    local bash_current_version
+    bash_current_version="$(bashutils::__get_current_bash_version)"
+
+    if ! bashutils::is_min_bash_version "${required_version}"; then
+        bashutils::terminate "Version ${required_version} is required, current version is ${bash_current_version}."
+        exit 1
+    fi
+}
