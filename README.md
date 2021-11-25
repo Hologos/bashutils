@@ -2,6 +2,56 @@
 
 This library contains several helper functions to be used with bash.
 
+## Installation
+
+**Important:** bash v3.2 and higher is required
+
+Since this is a library, you should't use it alone. You should include it into your project. There are several aproaches:
+
+### Using peru
+
+[Peru](https://github.com/buildinspace/peru) is a tool for including others people's code into your projects.
+
+You just define this dependency in `peru.yaml`:
+
+```yaml
+imports:
+    bashutils: vendor/hologos/bashutils/  # This is where we want peru to put the module.
+
+git module bashutils:
+    url: https://github.com/Hologos/bashutils.git
+```
+
+Save it and run:
+
+```bash
+peru sync
+```
+
+This will download the library and saves it into `vendor/hologos/bashutils/`.
+
+### Downloading the archive
+
+1) Download archive from [the release page](https://github.com/Hologos/bashutils/releases).
+2) Unpack it into `vendor/hologos/bashutils/` in your project folder.
+
+### Cloning repo
+
+**Important:** _If you forget to do `peru sync` after every update that contained changed `peru.yaml`, it can have undesirable consequences and can cause serious problems. Use at your own risk._
+
+```bash
+git clone https://github.com/Hologos/bashutils vendor/hologos/bashutils/
+peru sync
+```
+
+### Loading the library
+
+To include it in your project, just write:
+
+```bash
+source vendor/hologos/bashutils/bashutils
+```
+
 ## List of functions
 
 _bool_      | bashutils::is_installed()
